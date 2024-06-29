@@ -1,0 +1,30 @@
+{
+  "2024-06-28": [
+    {
+      "id": 1719557619145,
+      "hour": "10:55",
+      "text": "ZZZZZZZZZZZZZZZZ",
+      "moreInfo": "WWWWWWWWWWWWWWWWWWWWWW"
+    }
+  ],
+  "tareasPendientes": [
+    {
+      "id": 1719557619146,
+      "text": "Reclamacion IG",
+      "moreInfo": "Recabar informacion y organizarlo en la carpeta ReclamacionIG. Pedir ayuda en CNMV",
+      "completado": false
+    },
+    {
+      "id": 1719589017405,
+      "text": "Reclamacion Relx-IG",
+      "moreInfo": "sssssssssss",
+      "completed": false
+    },
+    {
+      "id": 1719589043906,
+      "text": "Matriculacion centros FP",
+      "moreInfo": "",
+      "completed": false
+    }
+  ]
+}
