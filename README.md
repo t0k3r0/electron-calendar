@@ -1,2 +1,3 @@
 node server.js
-npm start (npm install)a
+
+npm start (npm install)
