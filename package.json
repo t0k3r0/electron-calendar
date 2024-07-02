@@ -31,6 +31,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "express": "^4.19.2",
     "faker": "^5.5.3",
-    "mongoose": "^8.4.3"
+    "mongoose": "^8.4.3",
+    "sqlite3": "^5.1.7"
   }
 }

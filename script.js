@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
+    // Variables globales y inicialización
     const weekdays = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
     const daysContainer = document.getElementById("days-container");
     const monthYearElement = document.getElementById("month-year");
@@ -9,7 +10,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const closePopupButton = document.getElementById("close-popup");
     const saveTimeButton = document.getElementById("save-time");
     const pendingTasksContainer = document.getElementById("pendientes");
-    const moreInfoText = document.getElementById("more-info-text");
     const taskInputOverlay = document.getElementById("task-input-overlay");
     const taskTextInput = document.getElementById("task-text");
     const addTaskButton = document.getElementById("add-task");
@@ -19,44 +19,34 @@ document.addEventListener("DOMContentLoaded", function () {
     let selectedDate = "";
     let tasks = {};
     let tareasPendientes = [];
+
+    // Funciones auxiliares
     function getMonthName(monthIndex) {
-        const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         return months[monthIndex];
     }
+
     async function fetchNotesForDate(date) {
-        const response = await fetch(`http://localhost:3000/notes/${date}`);
-        const data = await response.json();
-        return Array.isArray(data.notes) ? data.notes : [];
+        const notes = await window.electronAPI.fetchNotesForDate(date);
+        return Array.isArray(notes) ? notes : [];
     }
-    async function saveNotesForDate(date, newNote) {
-        const notes = await fetchNotesForDate(date);
-        notes.push(newNote);
-        await fetch('http://localhost:3000/notes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ date, notes }),
-        });
+
+    async function saveNotesForDate(date, notes) {
+        await window.electronAPI.saveNotesForDate(date, notes);
     }
+
     async function deleteNoteForDate(date, noteId) {
-        let notes = await fetchNotesForDate(date);
-        notes = notes.filter(note => note.id !== noteId);
-        await fetch('http://localhost:3000/notes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ date, notes }),
-        });
+        await window.electronAPI.deleteNoteForDate(date, noteId);
     }
+
+    // Generación de los días del mes en el calendario
     async function generateMonthDays(month, year) {
         daysContainer.innerHTML = "";
         const firstDay = new Date(year, month, 1);
         const startingDay = firstDay.getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         let dayOfMonth = 1;
+
         for (let i = 0; i < 6; i++) {
             for (let j = 0; j < 7; j++) {
                 if (i === 0 && j < startingDay) {
@@ -86,22 +76,25 @@ document.addEventListener("DOMContentLoaded", function () {
                         displayDayNotes(date);
                         popupOverlay.classList.add("visible");
                     });
+
                     if (year === today.getFullYear() && month === today.getMonth() && dayOfMonth === today.getDate()) {
                         dayElement.classList.add("today");
                     }
+
                     daysContainer.appendChild(dayElement);
                     dayOfMonth++;
                 }
             }
         }
     }
+
     async function displayDayNotes(date) {
         const notesList = document.getElementById("notes-ul");
         notesList.innerHTML = "";
         const notes = await fetchNotesForDate(date);
         notes.forEach(note => {
             const noteItem = document.createElement("li");
-            noteItem.textContent = `${note.hour}: ${note.text},`;
+            noteItem.textContent = `${note.hour}: ${note.text}`;
             const deleteButton = document.createElement("button");
             deleteButton.textContent = "X";
             deleteButton.classList.add("delete-button");
@@ -121,60 +114,36 @@ document.addEventListener("DOMContentLoaded", function () {
             notesList.appendChild(noteItem);
         });
     }
+
+    // Cerrar el popup
     function closePopup() {
         popupOverlay.classList.remove("visible");
     }
+
     closePopupButton.addEventListener("click", function () {
         closePopup();
     });
+
     saveTimeButton.addEventListener("click", async function () {
         const hour = document.getElementById("hour").value;
         const noteText = document.getElementById("note-text").value;
         if (!noteText) {
-            showNotification("El campo de texto no puede estar vacío.");
+            showNotification("El campo de texto no puede estar vacío");
             return;
         }
-        const newNote = {
+        const note = {
             id: Date.now(),
-            hour: hour || "00:00",
+            hour,
             text: noteText,
-            moreInfo: "",
-            date: selectedDate,
+            moreInfo: ""
         };
-        if (!tasks[selectedDate]) {
-            tasks[selectedDate] = [];
-        }
-        tasks[selectedDate].push(newNote);
-        await saveNotesForDate(selectedDate, newNote);
-        document.getElementById("hour").value = "";
-        document.getElementById("note-text").value = "";
+        const notes = await fetchNotesForDate(selectedDate);
+        notes.push(note);
+        await saveNotesForDate(selectedDate, notes);
         displayDayNotes(selectedDate);
         updateCalendar();
     });
-    addTaskButton.addEventListener("click", function () {
-        taskTextInput.value = "";
-        taskInputOverlay.classList.add("visible");
-    });
-    saveTaskButton.addEventListener("click", async function () {
-        const taskText = taskTextInput.value.trim();
-        if (taskText) {
-            const newTask = {
-                id: Date.now(),
-                text: taskText,
-                moreInfo: "",
-                completed: false
-            };
-            await saveNotesForDate("tareasPendientes", newTask);
-            tareasPendientes.push(newTask);
-            updatePendingTasks();
-            taskInputOverlay.classList.remove("visible");
-        } else {
-            showNotification("El campo de texto no puede estar vacío.");
-        }
-    });
-    cancelTaskButton.addEventListener("click", function () {
-        taskInputOverlay.classList.remove("visible");
-    });
+
     function showNotification(message) {
         const notification = document.getElementById("notification");
         notification.textContent = message;
@@ -183,6 +152,34 @@ document.addEventListener("DOMContentLoaded", function () {
             notification.classList.add("hidden");
         }, 3000);
     }
+
+    addTaskButton.addEventListener("click", function () {
+        taskInputOverlay.classList.add("visible");
+    });
+
+    cancelTaskButton.addEventListener("click", function () {
+        taskInputOverlay.classList.remove("visible");
+    });
+
+    saveTaskButton.addEventListener("click", async function () {
+        const taskText = taskTextInput.value;
+        if (!taskText) {
+            alert("La descripción de la tarea no puede estar vacía.");
+            return;
+        }
+        const task = {
+            id: Date.now(),
+            text: taskText,
+            moreInfo: "",
+            completed: false
+        };
+        tareasPendientes.push(task);
+        taskTextInput.value = "";
+        taskInputOverlay.classList.remove("visible");
+        await saveNotesForDate("tareasPendientes", tareasPendientes);
+        updatePendingTasks();
+    });
+
     function updatePendingTasks() {
         pendingTasksContainer.innerHTML = "";
         tareasPendientes.forEach(task => {
@@ -190,6 +187,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 const li = document.createElement("li");
                 li.classList.add("ui-state-default");
                 li.textContent = task.text;
+                li.id = task.id; // Añadir id para identificar la tarea
+
                 const moreInfoSpan = document.createElement("span");
                 moreInfoSpan.textContent = " + ";
                 moreInfoSpan.classList.add("more-info-span");
@@ -246,6 +245,8 @@ document.addEventListener("DOMContentLoaded", function () {
                                     li.appendChild(editMoreInfoSpan);
                                     editVisible = false;
                                     moreInfoVisible = true;
+                                    saveNotesForDate("tareasPendientes", tareasPendientes);
+
                                 });
                                 li.appendChild(saveButton);
                                 editVisible = true;
@@ -266,7 +267,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         moreInfoVisible = false;
                     } else {
                         const campoMoreInfo = document.createElement("div");
-                        // campoMoreInfo.innerHTML = task.moreInfo.replace(/\n/g, '<br>');
                         campoMoreInfo.textContent = task.moreInfo;
                         campoMoreInfo.id = "moreInfo";
                         campoMoreInfo.style.display = "block";
@@ -300,7 +300,6 @@ document.addEventListener("DOMContentLoaded", function () {
                                 saveButton.style.display = "block";
                                 saveButton.addEventListener("click", function () {
                                     task.moreInfo = editCampoMoreInfo.value;
-                                    saveNotesForDate("tareasPendientes", task);
                                     const updatedMoreInfo = document.createElement("div");
                                     updatedMoreInfo.textContent = task.moreInfo;
                                     updatedMoreInfo.id = "moreInfo";
@@ -311,6 +310,8 @@ document.addEventListener("DOMContentLoaded", function () {
                                     li.appendChild(editMoreInfoSpan);
                                     editVisible = false;
                                     moreInfoVisible = true;
+                                    saveNotesForDate("tareasPendientes", tareasPendientes);
+
                                 });
                                 li.appendChild(saveButton);
                                 editVisible = true;
@@ -321,14 +322,36 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 });
                 li.appendChild(moreInfoSpan);
+                // li.appendChild(createDeleteButton(task));
+
                 sortableList.appendChild(li);
-                $(function () {
-                    $("#sortable").sortable();
-                    $("#sortable").disableSelection();
-                });
             }
         });
+        $(function () {
+            $("#sortable").sortable({
+                update: function (event, ui) {
+                    updateTaskOrder();
+                }
+            });
+            $("#sortable").disableSelection();
+        });
     }
+
+
+    async function updateTaskOrder() {
+        const orderedTasks = [];
+        const lis = sortableList.getElementsByTagName("li");
+        for (let i = 0; i < lis.length; i++) {
+            const taskId = lis[i].id;
+            const task = tareasPendientes.find(item => item.id === parseInt(taskId));
+            if (task) {
+                orderedTasks.push(task);
+            }
+        }
+        tareasPendientes = orderedTasks;
+        await saveNotesForDate("tareasPendientes", tareasPendientes);
+    }
+
     async function loadAllPendingTasks() {
         tareasPendientes = [];
         const notes = await fetchNotesForDate("tareasPendientes");
@@ -337,26 +360,30 @@ document.addEventListener("DOMContentLoaded", function () {
                 id: note.id,
                 text: note.text,
                 moreInfo: note.moreInfo,
-                completed: note.completado
+                completed: note.completed
             };
-            if (!note.completado) {
+            if (!note.completed) {
                 tareasPendientes.push(pendingTask);
             }
         });
         updatePendingTasks();
     }
+
     async function initialize() {
         await generateMonthDays(currentMonth, currentYear);
         monthYearElement.textContent = `${getMonthName(currentMonth)} ${currentYear}`;
         await loadAllPendingTasks();
     }
+
     initialize();
+
     document.getElementById("prev-month").addEventListener("click", function () {
         changeMonth(-1);
     });
     document.getElementById("next-month").addEventListener("click", function () {
         changeMonth(1);
     });
+
     function changeMonth(direction) {
         currentMonth += direction;
         if (currentMonth < 0) {
@@ -368,6 +395,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         initialize();
     }
+
     async function updateCalendar() {
         await generateMonthDays(currentMonth, currentYear);
         monthYearElement.textContent = `${getMonthName(currentMonth)} ${currentYear}`;

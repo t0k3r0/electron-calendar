@@ -1,66 +1,76 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-// Función para crear una copia de seguridad del archivo de notas
-function crearCopiaDeSeguridad() {
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const backupFilename = `notes_backup_${timestamp}.json`;
-    fs.copyFile('notes.json', backupFilename, (err) => {
-        if (err) {
-            console.error('Error al crear la copia de seguridad:', err);
-        } else {
-            console.log('Copia de seguridad creada:', backupFilename);
-        }
-    });
-}
+// Inicializar la base de datos SQLite
+const db = new sqlite3.Database('notes.db', (err) => {
+    if (err) {
+        console.error('Error al abrir la base de datos:', err);
+    } else {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS notes (
+                date TEXT PRIMARY KEY,
+                content TEXT
+            )
+        `, (err) => {
+            if (err) {
+                console.error('Error al crear la tabla:', err);
+            }
+        });
+    }
+});
 
 // Endpoint para obtener notas por fecha
 app.get('/notes/:date', (req, res) => {
     const date = req.params.date;
-    fs.readFile('notes.json', 'utf8', (err, data) => {
+    console.log(`Fetching notes for date: ${date}`);
+    db.get('SELECT content FROM notes WHERE date = ?', [date], (err, row) => {
         if (err) {
+            console.error('Error al consultar la base de datos:', err);
             res.status(500).send(err);
-            return;
+        } else {
+            res.json({ notes: row ? JSON.parse(row.content) : [] });
         }
-        const notes = JSON.parse(data);
-        res.json({ notes: notes[date] || [] });
     });
 });
 
 // Endpoint para guardar notas
 app.post('/notes', (req, res) => {
     const { date, notes } = req.body;
-    fs.readFile('notes.json', 'utf8', (err, data) => {
+    console.log(`Saving notes for date: ${date}`);
+    const content = JSON.stringify(notes);
+    db.run('REPLACE INTO notes (date, content) VALUES (?, ?)', [date, content], (err) => {
         if (err) {
+            console.error('Error al insertar en la base de datos:', err);
             res.status(500).send(err);
-            return;
-        }
-        const allNotes = JSON.parse(data);
-
-        // Crear una copia de seguridad antes de hacer cualquier cambio
-        crearCopiaDeSeguridad();
-
-        // Actualizar las notas y escribir en el archivo
-        allNotes[date] = notes;
-        fs.writeFile('notes.json', JSON.stringify(allNotes, null, 2), (err) => {
-            if (err) {
-                res.status(500).send(err);
-                return;
-            }
+        } else {
             res.status(200).send('Notas guardadas!');
-        });
+        }
+    });
+});
+
+// Endpoint para listar todas las fechas de las notas
+app.get('/notes', (req, res) => {
+    console.log('Listing all notes');
+    db.all('SELECT date FROM notes', [], (err, rows) => {
+        if (err) {
+            console.error('Error al consultar la base de datos:', err);
+            res.status(500).send(err);
+        } else {
+            res.json({ dates: rows.map(row => row.date) });
+        }
     });
 });
 
 // Endpoint para listar todas las copias de seguridad
 app.get('/backups', (req, res) => {
-    fs.readdir('.', (err, files) => {
+    console.log('Listing all backups');
+    fs.readdir('./backups', (err, files) => {
         if (err) {
+            console.error('Error al leer el directorio:', err);
             res.status(500).send(err);
             return;
         }
@@ -72,10 +82,12 @@ app.get('/backups', (req, res) => {
 // Endpoint para restaurar una copia de seguridad
 app.post('/restore', (req, res) => {
     const { backup } = req.body;
-    const backupPath = path.join('.', backup);
+    const backupPath = path.join('./backups', backup);
 
+    console.log(`Restoring backup: ${backup}`);
     fs.copyFile(backupPath, 'notes.json', (err) => {
         if (err) {
+            console.error('Error al restaurar la copia de seguridad:', err);
             res.status(500).send(err);
             return;
         }
