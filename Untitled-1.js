@@ -16,9 +16,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const saveTaskButton = document.getElementById("save-task");
     const cancelTaskButton = document.getElementById("cancel-task");
     const sortableList = document.getElementById("sortable");
+    const proximasContainer = document.getElementById("proximas");
+    const anterioresContainer = document.getElementById("anteriores");
     let selectedDate = "";
-    let tasks = {};
-    let tareasPendientes = [];
+    let events = [];
 
     // Funciones auxiliares
     function getMonthName(monthIndex) {
@@ -26,17 +27,41 @@ document.addEventListener("DOMContentLoaded", function () {
         return months[monthIndex];
     }
 
-    async function fetchNotesForDate(date) {
-        const notes = await window.electronAPI.fetchNotesForDate(date);
-        return Array.isArray(notes) ? notes : [];
+    async function fetchEventsForDate(date) {
+        const events = await window.electronAPI.fetchEventsForDate(date);
+        return Array.isArray(events) ? events : [];
     }
 
-    async function saveNotesForDate(date, notes) {
-        await window.electronAPI.saveNotesForDate(date, notes);
+    // Funciones para obtener las próximas y anteriores eventos del día
+    function getNextEvents(events, limit = 5) {
+        const currentDate = new Date();
+        const sortedEvents = events.filter(event => new Date(event.date) >= currentDate).sort((a, b) => new Date(a.date) - new Date(b.date));
+        return sortedEvents.slice(0, limit);
     }
 
-    async function deleteNoteForDate(date, noteId) {
-        await window.electronAPI.deleteNoteForDate(date, noteId);
+    function getPreviousEvents(events, limit = 5) {
+        const currentDate = new Date();
+        const sortedEvents = events.filter(event => new Date(event.date) < currentDate).sort((a, b) => new Date(b.date) - new Date(a.date));
+        return sortedEvents.slice(0, limit);
+    }
+
+    function updateNextPreviousEvents() {
+        proximasContainer.innerHTML = "";
+        anterioresContainer.innerHTML = "";
+        const nextEvents = getNextEvents(events);
+        const previousEvents = getPreviousEvents(events);
+
+        nextEvents.forEach(event => {
+            const li = document.createElement("li");
+            li.textContent = `${event.title} - ${event.date}`;
+            proximasContainer.appendChild(li);
+        });
+
+        previousEvents.forEach(event => {
+            const li = document.createElement("li");
+            li.textContent = `${event.title} - ${event.date}`;
+            anterioresContainer.appendChild(li);
+        });
     }
 
     // Generación de los días del mes en el calendario
@@ -62,18 +87,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     dayElement.classList.add("day");
                     dayElement.textContent = dayOfMonth;
                     const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
-                    const notes = await fetchNotesForDate(date);
-                    const notesCount = notes.length;
-                    const notesButton = document.createElement("button");
-                    notesButton.classList.add("notes-button");
-                    notesButton.textContent = notesCount;
-                    dayElement.appendChild(notesButton);
+                    const events = await fetchEventsForDate(date);
+                    const eventsCount = events.length;
+                    const eventsButton = document.createElement("button");
+                    eventsButton.classList.add("events-button");
+                    eventsButton.textContent = eventsCount;
+                    dayElement.appendChild(eventsButton);
                     dayElement.addEventListener("click", async function (e) {
                         e.stopPropagation();
                         selectedDate = date;
                         document.getElementById("hour").value = "";
-                        document.getElementById("note-text").value = "";
-                        displayDayNotes(date);
+                        document.getElementById("event-title").value = "";
+                        displayDayEvents(date);
                         popupOverlay.classList.add("visible");
                     });
 
@@ -88,30 +113,30 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    async function displayDayNotes(date) {
-        const notesList = document.getElementById("notes-ul");
-        notesList.innerHTML = "";
-        const notes = await fetchNotesForDate(date);
-        notes.forEach(note => {
-            const noteItem = document.createElement("li");
-            noteItem.textContent = `${note.hour}: ${note.text}`;
+    async function displayDayEvents(date) {
+        const eventsList = document.getElementById("events-ul");
+        eventsList.innerHTML = "";
+        const events = await fetchEventsForDate(date);
+        events.forEach(event => {
+            const eventItem = document.createElement("li");
+            eventItem.textContent = `${event.title} - ${event.date}`;
             const deleteButton = document.createElement("button");
             deleteButton.textContent = "X";
             deleteButton.classList.add("delete-button");
             deleteButton.addEventListener("click", async function () {
-                await deleteNoteForDate(date, note.id);
-                notesList.removeChild(noteItem);
+                await deleteEventForDate(date, event.id);
+                eventsList.removeChild(eventItem);
                 updateCalendar();
             });
             const moreInfoButton = document.createElement("button");
             moreInfoButton.textContent = "+";
             moreInfoButton.classList.add("more-info-button");
             moreInfoButton.addEventListener("click", function () {
-                alert(note.moreInfo);
+                alert(event.moreInfo);
             });
-            noteItem.appendChild(deleteButton);
-            noteItem.appendChild(moreInfoButton);
-            notesList.appendChild(noteItem);
+            eventItem.appendChild(deleteButton);
+            eventItem.appendChild(moreInfoButton);
+            eventsList.appendChild(eventItem);
         });
     }
 
@@ -126,21 +151,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     saveTimeButton.addEventListener("click", async function () {
         const hour = document.getElementById("hour").value;
-        const noteText = document.getElementById("note-text").value;
-        if (!noteText) {
-            showNotification("El campo de texto no puede estar vacío");
+        const eventTitle = document.getElementById("event-title").value;
+        if (!eventTitle) {
+            showNotification("El título del evento no puede estar vacío");
             return;
         }
-        const note = {
+        const event = {
             id: Date.now(),
-            hour,
-            text: noteText,
+            title: eventTitle,
+            date: selectedDate,
             moreInfo: ""
         };
-        const notes = await fetchNotesForDate(selectedDate);
-        notes.push(note);
-        await saveNotesForDate(selectedDate, notes);
-        displayDayNotes(selectedDate);
+        const events = await fetchEventsForDate(selectedDate);
+        events.push(event);
+        await saveEventsForDate(selectedDate, events);
+        displayDayEvents(selectedDate);
         updateCalendar();
     });
 
@@ -171,7 +196,8 @@ document.addEventListener("DOMContentLoaded", function () {
             id: Date.now(),
             text: taskText,
             moreInfo: "",
-            completed: false
+            completed: false,
+            date: new Date().toISOString()
         };
         tareasPendientes.push(task);
         taskTextInput.value = "";
@@ -181,59 +207,158 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function updatePendingTasks() {
-        sortableList.innerHTML = "";
+        pendingTasksContainer.innerHTML = "";
         tareasPendientes.forEach(task => {
-            const li = document.createElement("li");
-            li.id = task.id;
-            li.textContent = task.text;
-            const moreInfoSpan = document.createElement("span");
-            moreInfoSpan.textContent = " +";
-            moreInfoSpan.style.cursor = "pointer";
-            moreInfoSpan.addEventListener("click", function () {
-                const moreInfo = document.createElement("div");
-                moreInfo.textContent = task.moreInfo;
-                moreInfo.id = "moreInfo";
-                moreInfo.style.display = "block";
-                const editMoreInfoSpan = document.createElement("span");
-                editMoreInfoSpan.textContent = "editar";
-                editMoreInfoSpan.style.cursor = "pointer";
-                editMoreInfoSpan.addEventListener("click", function () {
-                    const editCampoMoreInfo = document.createElement("textarea");
-                    editCampoMoreInfo.value = task.moreInfo;
-                    const saveButton = document.createElement("button");
-                    saveButton.textContent = "Guardar";
-                    saveButton.addEventListener("click", function () {
-                        task.moreInfo = editCampoMoreInfo.value;
-                        moreInfo.textContent = task.moreInfo;
-                        saveNotesForDate("tareasPendientes", tareasPendientes);
-                    });
-                    moreInfo.appendChild(editCampoMoreInfo);
-                    moreInfo.appendChild(saveButton);
+            if (!task.completed) {
+                const li = document.createElement("li");
+                li.classList.add("ui-state-default");
+                li.textContent = task.text;
+                li.id = task.id; // Añadir id para identificar la tarea
+
+                const moreInfoSpan = document.createElement("span");
+                moreInfoSpan.textContent = " + ";
+                moreInfoSpan.classList.add("more-info-span");
+                moreInfoSpan.style.cursor = "pointer";
+                moreInfoSpan.id = "moreInfoId";
+                let moreInfoVisible = false;
+                let editVisible = false;
+                moreInfoSpan.addEventListener("click", function () {
+                    if (editVisible) {
+                        const editCampoMoreInfo = document.getElementById("editCampoId");
+                        if (editCampoMoreInfo) {
+                            li.removeChild(editCampoMoreInfo);
+                        }
+                        const saveButton = document.getElementById("saveButton");
+                        if (saveButton) {
+                            li.removeChild(saveButton);
+                        }
+                        const updatedMoreInfo = document.createElement("div");
+                        updatedMoreInfo.textContent = task.moreInfo;
+                        updatedMoreInfo.id = "moreInfo";
+                        updatedMoreInfo.style.display = "block";
+                        li.appendChild(updatedMoreInfo);
+                        const editMoreInfoSpan = document.createElement("span");
+                        editMoreInfoSpan.textContent = "editar";
+                        editMoreInfoSpan.classList.add("edit-more-info-span");
+                        editMoreInfoSpan.style.cursor = "pointer";
+                        editMoreInfoSpan.id = "editMoreInfoSpan";
+                        editMoreInfoSpan.addEventListener("click", function () {
+                            if (!editVisible) {
+                                const campoMoreInfo = document.getElementById("moreInfo");
+                                if (campoMoreInfo) {
+                                    li.removeChild(campoMoreInfo);
+                                }
+                                const editCampoMoreInfo = document.createElement("textarea");
+                                editCampoMoreInfo.value = task.moreInfo;
+                                editCampoMoreInfo.id = "editCampoId";
+                                editCampoMoreInfo.style.width = "100%";
+                                editCampoMoreInfo.style.height = "100px";
+                                editCampoMoreInfo.style.display = "block";
+                                li.appendChild(editCampoMoreInfo);
+                                const saveButton = document.createElement("button");
+                                saveButton.textContent = "Guardar";
+                                saveButton.id = "saveButton";
+                                saveButton.style.display = "block";
+                                saveButton.addEventListener("click", function () {
+                                    task.moreInfo = editCampoMoreInfo.value;
+                                    const updatedMoreInfo = document.createElement("div");
+                                    updatedMoreInfo.textContent = task.moreInfo;
+                                    updatedMoreInfo.id = "moreInfo";
+                                    updatedMoreInfo.style.display = "block";
+                                    li.appendChild(updatedMoreInfo);
+                                    li.removeChild(editCampoMoreInfo);
+                                    li.removeChild(saveButton);
+                                    li.appendChild(editMoreInfoSpan);
+                                    editVisible = false;
+                                    moreInfoVisible = true;
+                                    saveNotesForDate("tareasPendientes", tareasPendientes);
+
+                                });
+                                li.appendChild(saveButton);
+                                editVisible = true;
+                            }
+                        });
+                        li.appendChild(editMoreInfoSpan);
+                        editVisible = false;
+                        moreInfoVisible = true;
+                    } else if (moreInfoVisible) {
+                        const campoMoreInfo = document.getElementById("moreInfo");
+                        if (campoMoreInfo) {
+                            li.removeChild(campoMoreInfo);
+                        }
+                        const editMoreInfoSpan = document.getElementById("editMoreInfoSpan");
+                        if (editMoreInfoSpan) {
+                            li.removeChild(editMoreInfoSpan);
+                        }
+                        moreInfoVisible = false;
+                    } else {
+                        const campoMoreInfo = document.createElement("div");
+                        campoMoreInfo.textContent = task.moreInfo;
+                        campoMoreInfo.id = "moreInfo";
+                        campoMoreInfo.style.display = "block";
+                        li.appendChild(campoMoreInfo);
+                        const editMoreInfoSpan = document.createElement("span");
+                        editMoreInfoSpan.textContent = "editar";
+                        editMoreInfoSpan.classList.add("edit-more-info-span");
+                        editMoreInfoSpan.style.cursor = "pointer";
+                        editMoreInfoSpan.id = "editMoreInfoSpan";
+                        editMoreInfoSpan.addEventListener("click", function () {
+                            if (!editVisible) {
+                                const campoMoreInfo = document.getElementById("moreInfo");
+                                if (campoMoreInfo) {
+                                    li.removeChild(campoMoreInfo);
+                                }
+                                const editCampoMoreInfo = document.createElement("textarea");
+                                editCampoMoreInfo.value = task.moreInfo;
+                                editCampoMoreInfo.id = "editCampoId";
+                                editCampoMoreInfo.style.width = "100%";
+                                editCampoMoreInfo.style.height = "100px";
+                                editCampoMoreInfo.style.display = "block";
+                                li.appendChild(editCampoMoreInfo);
+                                const editMoreInfoSpan = document.getElementById("editMoreInfoSpan");
+                                if (editMoreInfoSpan) {
+                                    li.removeChild(editMoreInfoSpan);
+                                    moreInfoVisible = false;
+                                }
+                                const saveButton = document.createElement("button");
+                                saveButton.textContent = "Guardar";
+                                saveButton.id = "saveButton";
+                                saveButton.style.display = "block";
+                                saveButton.addEventListener("click", function () {
+                                    task.moreInfo = editCampoMoreInfo.value;
+                                    const updatedMoreInfo = document.createElement("div");
+                                    updatedMoreInfo.textContent = task.moreInfo;
+                                    updatedMoreInfo.id = "moreInfo";
+                                    updatedMoreInfo.style.display = "block";
+                                    li.appendChild(updatedMoreInfo);
+                                    li.removeChild(editCampoMoreInfo);
+                                    li.removeChild(saveButton);
+                                    li.appendChild(editMoreInfoSpan);
+                                    editVisible = false;
+                                    moreInfoVisible = true;
+                                    saveNotesForDate("tareasPendientes", tareasPendientes);
+
+                                });
+                                li.appendChild(saveButton);
+                                editVisible = true;
+                            }
+                        });
+                        li.appendChild(editMoreInfoSpan);
+                        moreInfoVisible = true;
+                    }
                 });
-                li.appendChild(moreInfo);
-                li.appendChild(editMoreInfoSpan);
-            });
-
-            const deleteButton = document.createElement("button");
-            deleteButton.textContent = "X";
-            deleteButton.classList.add("delete-button");
-            deleteButton.addEventListener("click", async function () {
-                tareasPendientes = tareasPendientes.filter(item => item.id !== task.id);
-                await saveNotesForDate("tareasPendientes", tareasPendientes);
-                updatePendingTasks();
-            });
-
-            li.appendChild(moreInfoSpan);
-            li.appendChild(deleteButton);
-            sortableList.appendChild(li);
-        });
-
-        $("#sortable").sortable({
-            update: function (event, ui) {
-                updateTaskOrder();
+                li.appendChild(moreInfoSpan);
+                sortableList.appendChild(li);
             }
         });
-        $("#sortable").disableSelection();
+        $(function () {
+            $("#sortable").sortable({
+                update: function (event, ui) {
+                    updateTaskOrder();
+                }
+            });
+            $("#sortable").disableSelection();
+        });
     }
 
     async function updateTaskOrder() {
@@ -248,6 +373,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         tareasPendientes = orderedTasks;
         await saveNotesForDate("tareasPendientes", tareasPendientes);
+        updateNextPreviousTasks();
     }
 
     async function loadAllPendingTasks() {
@@ -258,13 +384,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 id: note.id,
                 text: note.text,
                 moreInfo: note.moreInfo,
-                completed: note.completed
+                completed: note.completed,
+                date: note.date
             };
             if (!note.completed) {
                 tareasPendientes.push(pendingTask);
             }
         });
         updatePendingTasks();
+        updateNextPreviousTasks(); // Actualiza las tareas próximas y anteriores
     }
 
     async function initialize() {

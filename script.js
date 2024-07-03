@@ -189,6 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 li.textContent = task.text;
                 li.id = task.id; // Añadir id para identificar la tarea
 
+
                 const moreInfoSpan = document.createElement("span");
                 moreInfoSpan.textContent = " + ";
                 moreInfoSpan.classList.add("more-info-span");
@@ -219,7 +220,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         editMoreInfoSpan.addEventListener("click", function () {
                             if (!editVisible) {
                                 const campoMoreInfo = document.getElementById("moreInfo");
-                                if (campoMoreInfo) {
+                                if (campoMoreInfo == li.lastChild) {
                                     li.removeChild(campoMoreInfo);
                                 }
                                 const editCampoMoreInfo = document.createElement("textarea");
