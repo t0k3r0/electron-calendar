@@ -22,25 +22,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Funciones auxiliares
     function getMonthName(monthIndex) {
+        // debugger; // Añadir para inspeccionar monthIndex
         const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         return months[monthIndex];
     }
 
     async function fetchNotesForDate(date) {
+        // debugger; // Añadir para inspeccionar date
         const notes = await window.electronAPI.fetchNotesForDate(date);
         return Array.isArray(notes) ? notes : [];
     }
 
     async function saveNotesForDate(date, notes) {
+        // debugger; // Añadir para inspeccionar date y notes
         await window.electronAPI.saveNotesForDate(date, notes);
     }
 
     async function deleteNoteForDate(date, noteId) {
+        // debugger; // Añadir para inspeccionar date y noteId
         await window.electronAPI.deleteNoteForDate(date, noteId);
     }
 
     // Generación de los días del mes en el calendario
     async function generateMonthDays(month, year) {
+        // debugger; // Añadir para inspeccionar month y year
         daysContainer.innerHTML = "";
         const firstDay = new Date(year, month, 1);
         const startingDay = firstDay.getDay();
@@ -89,6 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function displayDayNotes(date) {
+        // debugger; // Añadir para inspeccionar date
         const notesList = document.getElementById("notes-ul");
         notesList.innerHTML = "";
         const notes = await fetchNotesForDate(date);
@@ -125,6 +131,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     saveTimeButton.addEventListener("click", async function () {
+        // debugger; // Añadir para inspeccionar hora y noteText
         const hour = document.getElementById("hour").value;
         const noteText = document.getElementById("note-text").value;
         if (!noteText) {
@@ -145,6 +152,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function showNotification(message) {
+        // debugger; // Añadir para inspeccionar message
         const notification = document.getElementById("notification");
         notification.textContent = message;
         notification.classList.remove("hidden");
@@ -154,14 +162,17 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     addTaskButton.addEventListener("click", function () {
+        // debugger; // Añadir para inspeccionar evento click
         taskInputOverlay.classList.add("visible");
     });
 
     cancelTaskButton.addEventListener("click", function () {
+        // debugger; // Añadir para inspeccionar evento click
         taskInputOverlay.classList.remove("visible");
     });
 
     saveTaskButton.addEventListener("click", async function () {
+        // debugger; // Añadir para inspeccionar taskText
         const taskText = taskTextInput.value;
         if (!taskText) {
             alert("La descripción de la tarea no puede estar vacía.");
@@ -181,153 +192,149 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function updatePendingTasks() {
+        // debugger; // Añadir para inspeccionar tareasPendientes
         pendingTasksContainer.innerHTML = "";
+
         tareasPendientes.forEach(task => {
             if (!task.completed) {
-                const li = document.createElement("li");
-                li.classList.add("ui-state-default");
-                li.textContent = task.text;
-                li.id = task.id; // Añadir id para identificar la tarea
-
-
-                const moreInfoSpan = document.createElement("span");
-                moreInfoSpan.textContent = " + ";
-                moreInfoSpan.classList.add("more-info-span");
-                moreInfoSpan.style.cursor = "pointer";
-                moreInfoSpan.id = "moreInfoId";
-                let moreInfoVisible = false;
-                let editVisible = false;
-                moreInfoSpan.addEventListener("click", function () {
-                    if (editVisible) {
-                        const editCampoMoreInfo = document.getElementById("editCampoId");
-                        if (editCampoMoreInfo) {
-                            li.removeChild(editCampoMoreInfo);
-                        }
-                        const saveButton = document.getElementById("saveButton");
-                        if (saveButton) {
-                            li.removeChild(saveButton);
-                        }
-                        const updatedMoreInfo = document.createElement("div");
-                        updatedMoreInfo.textContent = task.moreInfo;
-                        updatedMoreInfo.id = "moreInfo";
-                        updatedMoreInfo.style.display = "block";
-                        li.appendChild(updatedMoreInfo);
-                        const editMoreInfoSpan = document.createElement("span");
-                        editMoreInfoSpan.textContent = "editar";
-                        editMoreInfoSpan.classList.add("edit-more-info-span");
-                        editMoreInfoSpan.style.cursor = "pointer";
-                        editMoreInfoSpan.id = "editMoreInfoSpan";
-                        editMoreInfoSpan.addEventListener("click", function () {
-                            if (!editVisible) {
-                                const campoMoreInfo = document.getElementById("moreInfo");
-                                if (campoMoreInfo == li.lastChild) {
-                                    li.removeChild(campoMoreInfo);
-                                }
-                                const editCampoMoreInfo = document.createElement("textarea");
-                                editCampoMoreInfo.value = task.moreInfo;
-                                editCampoMoreInfo.id = "editCampoId";
-                                editCampoMoreInfo.style.width = "100%";
-                                editCampoMoreInfo.style.height = "100px";
-                                editCampoMoreInfo.style.display = "block";
-                                li.appendChild(editCampoMoreInfo);
-                                const saveButton = document.createElement("button");
-                                saveButton.textContent = "Guardar";
-                                saveButton.id = "saveButton";
-                                saveButton.style.display = "block";
-                                saveButton.addEventListener("click", function () {
-                                    task.moreInfo = editCampoMoreInfo.value;
-                                    const updatedMoreInfo = document.createElement("div");
-                                    updatedMoreInfo.textContent = task.moreInfo;
-                                    updatedMoreInfo.id = "moreInfo";
-                                    updatedMoreInfo.style.display = "block";
-                                    li.appendChild(updatedMoreInfo);
-                                    li.removeChild(editCampoMoreInfo);
-                                    li.removeChild(saveButton);
-                                    li.appendChild(editMoreInfoSpan);
-                                    editVisible = false;
-                                    moreInfoVisible = true;
-                                    saveNotesForDate("tareasPendientes", tareasPendientes);
-
-                                });
-                                li.appendChild(saveButton);
-                                editVisible = true;
-                            }
-                        });
-                        li.appendChild(editMoreInfoSpan);
-                        editVisible = false;
-                        moreInfoVisible = true;
-                    } else if (moreInfoVisible) {
-                        const campoMoreInfo = document.getElementById("moreInfo");
-                        if (campoMoreInfo) {
-                            li.removeChild(campoMoreInfo);
-                        }
-                        const editMoreInfoSpan = document.getElementById("editMoreInfoSpan");
-                        if (editMoreInfoSpan) {
-                            li.removeChild(editMoreInfoSpan);
-                        }
-                        moreInfoVisible = false;
-                    } else {
-                        const campoMoreInfo = document.createElement("div");
-                        campoMoreInfo.textContent = task.moreInfo;
-                        campoMoreInfo.id = "moreInfo";
-                        campoMoreInfo.style.display = "block";
-                        li.appendChild(campoMoreInfo);
-                        const editMoreInfoSpan = document.createElement("span");
-                        editMoreInfoSpan.textContent = "editar";
-                        editMoreInfoSpan.classList.add("edit-more-info-span");
-                        editMoreInfoSpan.style.cursor = "pointer";
-                        editMoreInfoSpan.id = "editMoreInfoSpan";
-                        editMoreInfoSpan.addEventListener("click", function () {
-                            if (!editVisible) {
-                                const campoMoreInfo = document.getElementById("moreInfo");
-                                if (campoMoreInfo) {
-                                    li.removeChild(campoMoreInfo);
-                                }
-                                const editCampoMoreInfo = document.createElement("textarea");
-                                editCampoMoreInfo.value = task.moreInfo;
-                                editCampoMoreInfo.id = "editCampoId";
-                                editCampoMoreInfo.style.width = "100%";
-                                editCampoMoreInfo.style.height = "100px";
-                                editCampoMoreInfo.style.display = "block";
-                                li.appendChild(editCampoMoreInfo);
-                                const editMoreInfoSpan = document.getElementById("editMoreInfoSpan");
-                                if (editMoreInfoSpan) {
-                                    li.removeChild(editMoreInfoSpan);
-                                    moreInfoVisible = false;
-                                }
-                                const saveButton = document.createElement("button");
-                                saveButton.textContent = "Guardar";
-                                saveButton.id = "saveButton";
-                                saveButton.style.display = "block";
-                                saveButton.addEventListener("click", function () {
-                                    task.moreInfo = editCampoMoreInfo.value;
-                                    const updatedMoreInfo = document.createElement("div");
-                                    updatedMoreInfo.textContent = task.moreInfo;
-                                    updatedMoreInfo.id = "moreInfo";
-                                    updatedMoreInfo.style.display = "block";
-                                    li.appendChild(updatedMoreInfo);
-                                    li.removeChild(editCampoMoreInfo);
-                                    li.removeChild(saveButton);
-                                    li.appendChild(editMoreInfoSpan);
-                                    editVisible = false;
-                                    moreInfoVisible = true;
-                                    saveNotesForDate("tareasPendientes", tareasPendientes);
-
-                                });
-                                li.appendChild(saveButton);
-                                editVisible = true;
-                            }
-                        });
-                        li.appendChild(editMoreInfoSpan);
-                        moreInfoVisible = true;
-                    }
-                });
-                li.appendChild(moreInfoSpan);
-                // li.appendChild(createDeleteButton(task));
-
+                const li = createTaskElement(task);
                 sortableList.appendChild(li);
             }
         });
+
+        initializeSortable();
+    }
+
+    function createTaskElement(task) {
+        // debugger; // Añadir para inspeccionar task
+        const li = document.createElement("li");
+        li.classList.add("ui-state-default");
+        li.textContent = task.text;
+        li.id = task.id;
+
+        const moreInfoSpan = createMoreInfoSpan(task, li);
+        li.appendChild(moreInfoSpan);
+
+        return li;
+    }
+
+    function createMoreInfoSpan(task, li) {
+        const moreInfoSpan = document.createElement("span");
+        moreInfoSpan.textContent = " + ";
+        moreInfoSpan.classList.add("more-info-span");
+        moreInfoSpan.style.cursor = "pointer";
+        moreInfoSpan.id = "moreInfoSpan_" + task.id;
+    
+        moreInfoSpan.addEventListener("click", () => {
+            const moreInfoDivId = "moreInfo_" + task.id;
+            const editCampoMoreInfoId = "editCampo_" + task.id;
+            const saveButtonId = "saveButton_" + task.id;
+            const editMoreInfoLinkId = "editMoreInfoLink_" + task.id;
+    
+            const moreInfoDiv = document.getElementById(moreInfoDivId);
+            const editMoreInfoLink = document.getElementById(editMoreInfoLinkId);
+            
+            if (moreInfoDiv && li.contains(moreInfoDiv)) {
+                // MoreInfoDiv ya existe, eliminarlo
+                li.removeChild(moreInfoDiv);
+                if (editMoreInfoLink) {
+                    li.removeChild(editMoreInfoLink);
+                }
+                removeEditField(li, editCampoMoreInfoId, saveButtonId);
+            } else {
+                // Crear nuevo MoreInfoDiv
+                const newMoreInfoDiv = createMoreInfoDiv(task, moreInfoDivId);
+                li.appendChild(newMoreInfoDiv);
+    
+                // Crear enlace "Editar"
+                const newEditMoreInfoLink = document.createElement("span");
+                newEditMoreInfoLink.textContent = "editar";
+                newEditMoreInfoLink.classList.add("edit-more-info-span");
+                newEditMoreInfoLink.style.cursor = "pointer";
+                newEditMoreInfoLink.id = editMoreInfoLinkId;
+                newEditMoreInfoLink.addEventListener("click", () => {
+                    // Mostrar campo de edición y botón de guardar
+                    displayEditField(task, li, editCampoMoreInfoId, saveButtonId);
+                    li.removeChild(newEditMoreInfoLink);
+                });
+                li.appendChild(newEditMoreInfoLink);
+            }
+        });
+    
+        return moreInfoSpan;
+    }
+    
+    function createMoreInfoDiv(task, moreInfoDivId) {
+        const moreInfoDiv = document.createElement("div");
+        moreInfoDiv.textContent = task.moreInfo;
+        moreInfoDiv.id = moreInfoDivId;
+        moreInfoDiv.style.display = "block";
+        return moreInfoDiv;
+    }
+    
+    function displayEditField(task, li, editCampoMoreInfoId, saveButtonId) {
+        // Eliminar el moreInfoDiv existente si está presente
+        const moreInfoDiv = document.getElementById("moreInfo_" + task.id);
+        if (moreInfoDiv && li.contains(moreInfoDiv)) {
+            li.removeChild(moreInfoDiv);
+        }
+    
+        const editCampoMoreInfo = document.createElement("textarea");
+        editCampoMoreInfo.value = task.moreInfo;
+        editCampoMoreInfo.id = editCampoMoreInfoId;
+        editCampoMoreInfo.style.width = "100%";
+        editCampoMoreInfo.style.height = "100px";
+        editCampoMoreInfo.style.display = "block";
+        li.appendChild(editCampoMoreInfo);
+    
+        const saveButton = createSaveButton(task, li, editCampoMoreInfo, saveButtonId);
+        li.appendChild(saveButton);
+    }
+    
+    function createSaveButton(task, li, editCampoMoreInfo, saveButtonId) {
+        const saveButton = document.createElement("button");
+        saveButton.textContent = "Guardar";
+        saveButton.id = saveButtonId;
+        saveButton.style.display = "block";
+    
+        saveButton.addEventListener("click", () => {
+            task.moreInfo = editCampoMoreInfo.value;
+    
+            const updatedMoreInfoDiv = document.createElement("div");
+            updatedMoreInfoDiv.textContent = task.moreInfo;
+            updatedMoreInfoDiv.id = "moreInfo_" + task.id;
+            updatedMoreInfoDiv.style.display = "block";
+    
+            const existingMoreInfoDiv = document.getElementById("moreInfo_" + task.id);
+            if (existingMoreInfoDiv) {
+                li.replaceChild(updatedMoreInfoDiv, existingMoreInfoDiv);
+            } else {
+                li.appendChild(updatedMoreInfoDiv);
+            }
+    
+            removeEditField(li, editCampoMoreInfo.id, saveButton.id);
+            saveNotesForDate("tareasPendientes", tareasPendientes);
+        });
+    
+        return saveButton;
+    }
+    
+    function removeEditField(li, editCampoMoreInfoId, saveButtonId) {
+        const editCampoMoreInfo = document.getElementById(editCampoMoreInfoId);
+        if (editCampoMoreInfo && li.contains(editCampoMoreInfo)) {
+            li.removeChild(editCampoMoreInfo);
+        }
+        const saveButton = document.getElementById(saveButtonId);
+        if (saveButton && li.contains(saveButton)) {
+            li.removeChild(saveButton);
+        }
+    }
+    
+    
+
+    
+
+    function initializeSortable() {
         $(function () {
             $("#sortable").sortable({
                 update: function (event, ui) {
@@ -338,8 +345,8 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-
     async function updateTaskOrder() {
+        // debugger; // Añadir para inspeccionar orden de tareas
         const orderedTasks = [];
         const lis = sortableList.getElementsByTagName("li");
         for (let i = 0; i < lis.length; i++) {
@@ -354,6 +361,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function loadAllPendingTasks() {
+        // debugger; // Añadir para inspeccionar tareas pendientes
         tareasPendientes = [];
         const notes = await fetchNotesForDate("tareasPendientes");
         notes.forEach(note => {
@@ -371,6 +379,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function initialize() {
+        // debugger; // Añadir para inspeccionar inicialización
         await generateMonthDays(currentMonth, currentYear);
         monthYearElement.textContent = `${getMonthName(currentMonth)} ${currentYear}`;
         await loadAllPendingTasks();
@@ -386,6 +395,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function changeMonth(direction) {
+        // debugger; // Añadir para inspeccionar dirección
         currentMonth += direction;
         if (currentMonth < 0) {
             currentMonth = 11;
@@ -398,6 +408,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function updateCalendar() {
+        // debugger; // Añadir para inspeccionar actualización del calendario
         await generateMonthDays(currentMonth, currentYear);
         monthYearElement.textContent = `${getMonthName(currentMonth)} ${currentYear}`;
     }
