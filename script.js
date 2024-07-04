@@ -16,36 +16,32 @@ document.addEventListener("DOMContentLoaded", function () {
     const saveTaskButton = document.getElementById("save-task");
     const cancelTaskButton = document.getElementById("cancel-task");
     const sortableList = document.getElementById("sortable");
+    const proximasContainer = document.getElementById("proximas");
     let selectedDate = "";
     let tasks = {};
     let tareasPendientes = [];
 
     // Funciones auxiliares
     function getMonthName(monthIndex) {
-        // debugger; // Añadir para inspeccionar monthIndex
         const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         return months[monthIndex];
     }
 
     async function fetchNotesForDate(date) {
-        // debugger; // Añadir para inspeccionar date
         const notes = await window.electronAPI.fetchNotesForDate(date);
         return Array.isArray(notes) ? notes : [];
     }
 
     async function saveNotesForDate(date, notes) {
-        // debugger; // Añadir para inspeccionar date y notes
         await window.electronAPI.saveNotesForDate(date, notes);
     }
 
     async function deleteNoteForDate(date, noteId) {
-        // debugger; // Añadir para inspeccionar date y noteId
         await window.electronAPI.deleteNoteForDate(date, noteId);
     }
 
     // Generación de los días del mes en el calendario
     async function generateMonthDays(month, year) {
-        // debugger; // Añadir para inspeccionar month y year
         daysContainer.innerHTML = "";
         const firstDay = new Date(year, month, 1);
         const startingDay = firstDay.getDay();
@@ -94,10 +90,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function displayDayNotes(date) {
-        // debugger; // Añadir para inspeccionar date
         const notesList = document.getElementById("notes-ul");
         notesList.innerHTML = "";
         const notes = await fetchNotesForDate(date);
+        notes.sort((a, b) => {
+            if (a.hour < b.hour) return -1;
+            if (a.hour > b.hour) return 1;
+            return 0;
+        });
         notes.forEach(note => {
             const noteItem = document.createElement("li");
             noteItem.textContent = `${note.hour}: ${note.text}`;
@@ -121,7 +121,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Cerrar el popup
     function closePopup() {
         popupOverlay.classList.remove("visible");
     }
@@ -131,9 +130,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     saveTimeButton.addEventListener("click", async function () {
-        // debugger; // Añadir para inspeccionar hora y noteText
         const hour = document.getElementById("hour").value;
         const noteText = document.getElementById("note-text").value;
+        if (!hour) {
+            showNotification("El campo de hora no puede estar vacío.");
+            return;
+        }
         if (!noteText) {
             showNotification("El campo de texto no puede estar vacío");
             return;
@@ -152,7 +154,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function showNotification(message) {
-        // debugger; // Añadir para inspeccionar message
         const notification = document.getElementById("notification");
         notification.textContent = message;
         notification.classList.remove("hidden");
@@ -162,17 +163,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     addTaskButton.addEventListener("click", function () {
-        // debugger; // Añadir para inspeccionar evento click
         taskInputOverlay.classList.add("visible");
     });
 
     cancelTaskButton.addEventListener("click", function () {
-        // debugger; // Añadir para inspeccionar evento click
         taskInputOverlay.classList.remove("visible");
     });
 
     saveTaskButton.addEventListener("click", async function () {
-        // debugger; // Añadir para inspeccionar taskText
         const taskText = taskTextInput.value;
         if (!taskText) {
             alert("La descripción de la tarea no puede estar vacía.");
@@ -192,7 +190,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function updatePendingTasks() {
-        // debugger; // Añadir para inspeccionar tareasPendientes
         pendingTasksContainer.innerHTML = "";
 
         tareasPendientes.forEach(task => {
@@ -206,7 +203,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function createTaskElement(task) {
-        // debugger; // Añadir para inspeccionar task
         const li = document.createElement("li");
         li.classList.add("ui-state-default");
         li.textContent = task.text;
@@ -235,25 +231,21 @@ document.addEventListener("DOMContentLoaded", function () {
             const editMoreInfoLink = document.getElementById(editMoreInfoLinkId);
             
             if (moreInfoDiv && li.contains(moreInfoDiv)) {
-                // MoreInfoDiv ya existe, eliminarlo
                 li.removeChild(moreInfoDiv);
                 if (editMoreInfoLink) {
                     li.removeChild(editMoreInfoLink);
                 }
                 removeEditField(li, editCampoMoreInfoId, saveButtonId);
             } else {
-                // Crear nuevo MoreInfoDiv
                 const newMoreInfoDiv = createMoreInfoDiv(task, moreInfoDivId);
                 li.appendChild(newMoreInfoDiv);
     
-                // Crear enlace "Editar"
                 const newEditMoreInfoLink = document.createElement("span");
                 newEditMoreInfoLink.textContent = "editar";
                 newEditMoreInfoLink.classList.add("edit-more-info-span");
                 newEditMoreInfoLink.style.cursor = "pointer";
                 newEditMoreInfoLink.id = editMoreInfoLinkId;
                 newEditMoreInfoLink.addEventListener("click", () => {
-                    // Mostrar campo de edición y botón de guardar
                     displayEditField(task, li, editCampoMoreInfoId, saveButtonId);
                     li.removeChild(newEditMoreInfoLink);
                 });
@@ -273,7 +265,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     function displayEditField(task, li, editCampoMoreInfoId, saveButtonId) {
-        // Eliminar el moreInfoDiv existente si está presente
         const moreInfoDiv = document.getElementById("moreInfo_" + task.id);
         if (moreInfoDiv && li.contains(moreInfoDiv)) {
             li.removeChild(moreInfoDiv);
@@ -330,10 +321,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
     
-    
-
-    
-
     function initializeSortable() {
         $(function () {
             $("#sortable").sortable({
@@ -346,7 +333,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function updateTaskOrder() {
-        // debugger; // Añadir para inspeccionar orden de tareas
         const orderedTasks = [];
         const lis = sortableList.getElementsByTagName("li");
         for (let i = 0; i < lis.length; i++) {
@@ -361,7 +347,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function loadAllPendingTasks() {
-        // debugger; // Añadir para inspeccionar tareas pendientes
         tareasPendientes = [];
         const notes = await fetchNotesForDate("tareasPendientes");
         notes.forEach(note => {
@@ -378,11 +363,43 @@ document.addEventListener("DOMContentLoaded", function () {
         updatePendingTasks();
     }
 
+    async function getNextEvents() {
+        const futureEvents = [];
+        const today = new Date();
+        let currentDate = new Date();
+        
+        while (futureEvents.length < 5) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const notes = await fetchNotesForDate(dateStr);
+            notes.forEach(note => {
+                futureEvents.push({
+                    date: dateStr,
+                    hour: note.hour,
+                    text: note.text
+                });
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        return futureEvents.slice(0, 5);
+    }
+
+    async function updateNextEvents() {
+        const events = await getNextEvents();
+        proximasContainer.innerHTML = "";
+        events.forEach(event => {
+            const eventItem = document.createElement("div");
+            eventItem.classList.add("event-item");
+            eventItem.textContent = `${event.date} ${event.hour}: ${event.text}`;
+            proximasContainer.appendChild(eventItem);
+        });
+    }
+
     async function initialize() {
-        // debugger; // Añadir para inspeccionar inicialización
         await generateMonthDays(currentMonth, currentYear);
         monthYearElement.textContent = `${getMonthName(currentMonth)} ${currentYear}`;
         await loadAllPendingTasks();
+        await updateNextEvents();
     }
 
     initialize();
@@ -393,9 +410,15 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("next-month").addEventListener("click", function () {
         changeMonth(1);
     });
-
+    document.getElementById("prev-year").addEventListener("click", function () {
+        changeMonth(-12);
+    });
+    document.getElementById("next-year").addEventListener("click", function () {
+        changeMonth(12);
+    });
+    
+    
     function changeMonth(direction) {
-        // debugger; // Añadir para inspeccionar dirección
         currentMonth += direction;
         if (currentMonth < 0) {
             currentMonth = 11;
@@ -408,8 +431,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function updateCalendar() {
-        // debugger; // Añadir para inspeccionar actualización del calendario
         await generateMonthDays(currentMonth, currentYear);
         monthYearElement.textContent = `${getMonthName(currentMonth)} ${currentYear}`;
+        await updateNextEvents();
     }
 });
